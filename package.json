@@ -1,0 +1,27 @@
+{
+  "name": "password-reset-adds",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Korabi-dev/password-reset-adds.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Korabi-dev/password-reset-adds/issues"
+  },
+  "homepage": "https://github.com/Korabi-dev/password-reset-adds#readme",
+  "description": "",
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "express": "^5.1.0",
+    "ldapjs": "^3.0.7",
+    "mongoose": "^8.13.1",
+    "nodemailer": "^6.10.0"
+  }
+}
