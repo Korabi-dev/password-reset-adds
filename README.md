@@ -14,7 +14,7 @@ It is not accessible on the local network, meaning the port for it is EXPLICITLY
 A [cloudflare tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) or other reverse proxy that is secure is the only way to access it
 
 
-\- I DO NOT take any responsibility if you incorrectly set this up, and then have your domain compromised, you have been warned.
+\- I DO NOT take any responsibility if you incorrectly set this up, and then have your domain compromised, you have been warned.<br>
 \- If you are an organization handling sensitive information, DO NOT use this, theres much better (however paid) stuff out there, like the [ManageEngine Suite](https://www.manageengine.com/)
 
 ## Features
