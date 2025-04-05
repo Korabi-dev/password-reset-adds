@@ -7,6 +7,7 @@ const mongoose = require("mongoose"); // MongoDB library to connect to the datab
 const crypto = require("crypto"); // Crypto library to generate secure codes
 const child = require("child_process"); // Child process to run the password reset script
 const helmet = require("helmet"); // Helmet is a middleware that helps secure Express apps by setting various HTTP headers
+const path = require("path"); // Path module to handle file paths
 // Validate config variables
 const requiredConfigVars = [
   "mongodb",
@@ -64,7 +65,7 @@ async function addCode(email, username) {
     }; // Create an object with the username, email, code and time, we use Date.now() to get the current time in milliseconds since 1970, this is what our database expects
     // Query the database to see if there is a duplicate document, we do this so in case of a duplicate entry, we can handle the error easier
     const find = await models.codes
-      .find({ $or: { username, email, code } })
+      .findOne({ $or: [{username}, {email}, {code}]  })
       .lean();
     if (find)
       return {
@@ -84,15 +85,16 @@ async function addCode(email, username) {
     }); // Send the email using the transporter we created earlier
     return { error: false }; // return error false which in this case well uh means success (i think? my code is a mystery)
   } catch (e) {
+    console.error(e); // Log the error to the console
     return { error: true, message: "An unknown error occurred" }; // If there was an unknown error, like a database error, return it
   }
 }
 
 async function validateCode(email, code) {
-  const find = await models.codes.findOne({ code }).lean(); // Find the code in the database
+  const find = await models.codes.findOne({code}).lean() // Find the code in the database
   if (!find) return { error: true, message: "This code is invalid" }; // If the code is not found, return an error
   if (email != find.email)
-    return { error: true, message: "This code is invalid" }; // If the email does not match the code, return an error
+    return { error: true, message: "This code is invali2d" }; // If the email does not match the code, return an error
   if (Date.now() - find.time >= 1000 * Number(config.expiryTime)) {
     await models.codes.findOneAndDelete({ code }); // Delete the code from the database, we do this so we don't have to worry about duplicates in the future, and also to save space
     return {
@@ -103,6 +105,24 @@ async function validateCode(email, code) {
   await models.codes.findOneAndDelete({ code }); // Delete the code from the database, we do this so we don't have to worry about duplicates in the future, and also to save space
   return { error: false };
 }
+
+
+// Function to clean up expired codes
+async function cleanupExpiredCodes() {
+  try {
+    const expirationThreshold = 3 * 1000 * Number(config.expiryTime); // 3x the expiration time in milliseconds
+    const now = Date.now();
+    const result = await models.codes.deleteMany({
+      time: { $lt: now - expirationThreshold }, // Find codes where the time is older than the threshold
+    });
+    console.log(`Cleanup complete. Deleted ${result.deletedCount} expired codes.`);
+  } catch (error) {
+    console.error("Error during cleanup of expired codes:", error);
+  }
+}
+
+// Run cleanup every 30 minutes
+setInterval(cleanupExpiredCodes, 1000 * 60 * 30);
 
 // Body parser
 app.use(express.json());
@@ -190,10 +210,10 @@ setInterval(() => {
 
 // Endpoints
 app.post("/codes/new", rateLimit, async (req, res) => {
-  const { code, email, username } = req.body; // Get the code, email and username from the request body
-  if (!code || !email || !username) return res.error("Missing parameters"); // Check if all parameters are present
-  if (validateInfo({ code, email, username }) !== true)
-    return res.error(validateInfo({ code, email, username }).message); // Check if the details are valid, if not return the error message
+  const { email, username } = req.body; // Get the email and username from the request body
+  if (!email || !username) return res.error("Missing parameters"); // Check if all parameters are present
+  if (validateInfo({ email, username }) !== true)
+    return res.error(validateInfo({ email, username }).message); // Check if the details are valid, if not return the error message
   const user = await models.users.findOne({ email, username }).lean(); // Find the user in the database using the email and username, meaning the ones that are given match since we are using those to query
   // and mongodb will by default use an AND operator on queries, so we can just use findOne here
   if (!user) return res.error("User not found"); // If the user is not found, return an error
@@ -212,24 +232,28 @@ app.post("/codes/validate", rateLimit, async (req, res) => {
   const result = await validateCode(email, code); // Call the validateCode function and pass in the email and code
   if (result.error) return res.error(result.message); // If there was an error, return it
   // If the code is valid, we can spawn a new process to run the password reset script, we do this in the background so we dont block the main thread, or show a window on the windows server
-  const childProcess = child.spawn("./changepass.ps1", [username, newPassword]); // Spawn a new process to run the password reset script
+  const childProcess = child.spawn("powershell.exe", [path.join(__dirname, "changepass.ps1"), username, newPassword]); // Spawn a new process to run the password reset script
+ let ret = false;
   childProcess.stdout.on("data", (data) => {
-    if (data.toString().toLowerCase().includes("success")) {
+    if (data.toString().toLowerCase().includes("success") && !ret) {
+      ret = true;
       return res.success("Password changed successfully");
     }
   });
   childProcess.stderr.on("data", (data) => {
     console.error(`Error: ${data}`);
-    return res.error("Password change failed");
+   if (!ret){ ret = true; return res.error("Password change failed"); }
   });
 
   childProcess.on("error", (err) => {
     console.error(`Failed to execute script: ${err}`);
-    return res.error("Failed to execute password reset script");
+   if(!ret){ ret = true; return res.error("Failed to execute password reset script"); }
   });
 
   childProcess.on("close", (code) => {
-    if (code !== 0) {
+    if (code !== 0 && !ret) {
+      console.error(`Script exited with code ${code}`);
+      ret = true;
       return res.error("Password reset script exited with an error");
     }
   });
