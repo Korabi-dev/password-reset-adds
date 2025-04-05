@@ -171,6 +171,13 @@ The application can be configured using the following environment variables:
 
 Contributions are welcome! Feel free to open issues or submit pull requests.
 
+
+## TODO
+- Adding an actual UI
+- Making an endpoint handler, meaning I can split them into different files
+- Better error handling for the script
+- Actually enforce the security recommendations I put at the top
+
 ## Acknowledgments
 
 - [Express](https://expressjs.com/) for the web framework.
