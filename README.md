@@ -72,6 +72,18 @@ LDAP support for NodeJS, and python SUCK for changing passwords, especially for 
 
    ### Endpoints
 
+   ### Response Template
+
+   Error Response
+   ```json
+   {"error": true, "message": String}
+   ```
+
+   Success Response
+   ```json
+   {"error": false}
+   ```
+
    #### 1. **Request a New Code**
    - **POST** `/codes/new`
    - **Body**:
